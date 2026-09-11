@@ -34,12 +34,11 @@ WorkBuddy 是账号制,但**用户级技能和记忆存在本机 `~/.workbuddy/`
 
 ## 首次使用(每台电脑做一次)
 1. 把本技能目录 `workbuddy-cross-device-sync` 放到两台电脑的 `~/.workbuddy/skills/`(用 `wb-sync-skill.zip` 解压,或一端 push 后另一端 pull)。
-2. **GitHub 中转准备**(只需做一次, 全局有效):
-   - 在 GitHub 建一个**私有**仓库(如 `wb-skills-sync`)。
-   - 本机确保能访问 GitHub:国内需代理(`HTTPS_PROXY` 已设则可);SSH 22 端口通常被墙,**务必用 HTTPS URL 而非 SSH**。
-   - 凭证:登录 **GitHub Desktop**(会自动把 token 存入系统 git credential),或用 Personal Access Token。这样命令行 git 对私有仓库免密 push/pull。
-3. 在其中一台运行 `init --type git --remote https://github.com/<你>/wb-skills-sync.git`。
-4. "源电脑"(技能/记忆全的那台)运行 `push`,把初始大脑推上仓库。
+2. **GitHub Desktop 登录**(只需做一次, 全局有效):
+   - 在两台电脑都打开 GitHub Desktop,登录**同一个 GitHub 账号**。
+   - 国内访问走本机 `HTTPS_PROXY` 代理(脚本自动继承);SSH 22 端口通常被墙,**务必用 HTTPS URL 而非 SSH**。
+3. 在其中一台运行 `init --type git --remote https://github.com/<你>/wb-skills-sync.git`。脚本会自动检查仓库是否存在,不存在则自动创建私有仓库。
+4. "源电脑"(技能/记忆全的那台)运行 `push`,把初始大脑推上仓库。git 本地缓存放在 `~/.workbuddy/.wb-sync/repo`,不与技能目录互相嵌套。
 
 ## 自动化(实现你要的"自动互通")
 装好技能后,在**两台电脑**各建一个周期性自动化任务(在 WorkBuddy 里让我创建,或你自己建):
