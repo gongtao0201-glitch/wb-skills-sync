@@ -1,0 +1,160 @@
+{
+  "meta": {
+    "spec_id": "default-taobao-v1",
+    "spec_name": "默认暖橙爆款版式",
+    "source_refs": [],
+    "source_type": "own",
+    "platform": "taobao",
+    "canvas_width": 750,
+    "created": "2026-09-03",
+    "notes": "MODE A 学图前先跑通流程用的默认骨架。学图后请按参考图逐项覆写 palette / typography / decor / modules。"
+  },
+
+  "palette": {
+    "primary": "#E23A1A",
+    "secondary": "#F5A623",
+    "accent": "#1B1B1B",
+    "bg_base": "#FFFFFF",
+    "bg_alt": "#FFF6EC",
+    "text_main": "#1B1B1B",
+    "text_sub": "#6B6B6B",
+    "text_inverse": "#FFFFFF",
+    "line": "#EDEDED",
+    "area_ratio": "主色15% / 辅色10% / 背景+留白65% / 深色10%"
+  },
+
+  "typography": {
+    "font_stack": "'Microsoft YaHei','Noto Sans SC','PingFang SC',sans-serif",
+    "title_font_stack": "'Microsoft YaHei','Noto Sans SC','PingFang SC',sans-serif",
+    "scale": [
+      { "role": "hero_title",    "size_px": 72, "weight": 900, "color": "var(--c-accent)",   "letter_spacing": "0.02em", "align": "center", "line_height": 1.15 },
+      { "role": "hero_sub",      "size_px": 32, "weight": 400, "color": "var(--c-text-sub)", "letter_spacing": "0.08em", "align": "center", "line_height": 1.5 },
+      { "role": "section_title", "size_px": 48, "weight": 800, "color": "var(--c-accent)",   "letter_spacing": "0.02em", "align": "center", "line_height": 1.25 },
+      { "role": "section_sub",   "size_px": 24, "weight": 400, "color": "var(--c-text-sub)", "letter_spacing": "0.1em",  "align": "center", "line_height": 1.5 },
+      { "role": "point_title",   "size_px": 34, "weight": 700, "color": "var(--c-primary)",  "letter_spacing": "0",      "align": "left",   "line_height": 1.35 },
+      { "role": "body",          "size_px": 26, "weight": 400, "color": "var(--c-text-main)","letter_spacing": "0.01em", "align": "left",   "line_height": 1.75 },
+      { "role": "caption",       "size_px": 22, "weight": 400, "color": "var(--c-text-sub)", "letter_spacing": "0",      "align": "left",   "line_height": 1.5 },
+      { "role": "number",        "size_px": 64, "weight": 900, "color": "var(--c-primary)",  "letter_spacing": "-0.02em","align": "center", "line_height": 1 },
+      { "role": "badge_text",    "size_px": 22, "weight": 700, "color": "var(--c-text-inverse)", "letter_spacing": "0.05em", "align": "center", "line_height": 1 }
+    ],
+    "min_size_guard": true
+  },
+
+  "decor": {
+    "badge":        { "shape": "rounded_rect", "radius_px": 8, "bg": "var(--c-primary)", "color": "var(--c-text-inverse)", "padding": "8px 20px" },
+    "divider":      { "type": "dashed", "color": "var(--c-line)", "width_px": 1, "margin_px": 40 },
+    "section_head": { "style": "title_with_wings", "wing": "short_line", "wing_color": "var(--c-primary)", "gap_px": 24 },
+    "index_number": { "style": "filled_circle", "size_px": 56, "bg": "var(--c-primary)", "color": "var(--c-text-inverse)" },
+    "card":         { "bg": "var(--c-bg-alt)", "radius_px": 12, "padding_px": 32, "shadow": "0 4px 16px rgba(0,0,0,.06)" },
+    "texture":      "none",
+    "gradient":     { "from": "#FFF6EC", "to": "#FFFFFF", "deg": 180 },
+    "product_shadow": "0 12px 32px rgba(0,0,0,.16)",
+    "product_reflection": false
+  },
+
+  "modules": [
+    {
+      "id": "hero",
+      "type": "hero_identity",
+      "height_px": 1000,
+      "bg": "var(--c-bg-alt)",
+      "layout": "full_bleed_bg + centered_product",
+      "composition_note": "背景满版，产品居中占画面高度55%，顶部大标题，底部三卖点横排",
+      "slots": {
+        "title":   { "role": "hero_title", "text": "{{product_name}}" },
+        "sub":     { "role": "hero_sub",   "text": "{{core_promise}}" },
+        "product": { "src": "{{img_main}}", "scale_pct": 55, "align": "center" },
+        "points":  { "items": ["{{point_1}}", "{{point_2}}", "{{point_3}}"] }
+      }
+    },
+    {
+      "id": "pain",
+      "type": "pain_point",
+      "bg": "var(--c-bg-base)",
+      "slots": {
+        "title": "钓鱼人常遇到的三个问题",
+        "sub": "你不是技术差，是窝料没选对",
+        "items": [
+          "打窝半小时，浮漂一动不动",
+          "鱼进窝了却留不住，钓两条就散",
+          "饵料状态难控，一入水就散成一团"
+        ]
+      }
+    },
+    {
+      "id": "feature_grid",
+      "type": "feature_grid",
+      "bg": "var(--c-bg-base)",
+      "slots": {
+        "title": "三个关键点，解决留鱼难题",
+        "cols": 2,
+        "items": [
+          { "title": "酒香发酵", "desc": "低温慢发酵，味型穿透力强", "img": "{{img_detail_1}}" },
+          { "title": "状态可控", "desc": "干湿可调，手搓即散", "img": "{{img_detail_2}}" },
+          { "title": "颗粒配比", "desc": "粗细搭配，形成立体雾化带", "img": "{{img_detail_3}}" },
+          { "title": "留鱼持久", "desc": "大颗粒沉底，持续诱鱼", "img": "{{img_detail_4}}" }
+        ]
+      }
+    },
+    {
+      "id": "param_table",
+      "type": "param_table",
+      "bg": "var(--c-bg-alt)",
+      "slots": {
+        "title": "产品参数",
+        "rows": [
+          { "k": "品名",   "v": "{{product_name}}" },
+          { "k": "净含量", "v": "{{net_weight}}" },
+          { "k": "适用水域", "v": "{{water_type}}" },
+          { "k": "味型",   "v": "{{flavor}}" },
+          { "k": "保质期", "v": "{{shelf_life}}" }
+        ]
+      }
+    },
+    {
+      "id": "usage_steps",
+      "type": "usage_steps",
+      "bg": "var(--c-bg-base)",
+      "slots": {
+        "title": "三步开饵，新手也能上手",
+        "items": [
+          { "text": "取饵料一份倒入盆中", "img": "{{img_step_1}}" },
+          { "text": "按 1:0.8 加水，静置 5 分钟", "img": "{{img_step_2}}" },
+          { "text": "轻打揉拢，搓团即可使用", "img": "{{img_step_3}}" }
+        ]
+      }
+    },
+    {
+      "id": "trust_footer",
+      "type": "trust_footer",
+      "bg": "var(--c-bg-alt)",
+      "slots": {
+        "badges": [
+          { "icon": "✓", "text": "正品保障" },
+          { "icon": "↺", "text": "七天退换" },
+          { "icon": "⚡", "text": "48小时发货" }
+        ],
+        "notes": [
+          "本产品为钓鱼辅助饵料，效果受水域、天气、钓法影响",
+          "开封后请密封保存于阴凉干燥处"
+        ]
+      }
+    }
+  ],
+
+  "copy_patterns": {
+    "hero_title": "{{product_name}}｜{{one_line_position}}",
+    "point_head": "{{number}}{{unit}} {{benefit}}",
+    "cta": "{{action}}，{{result}}",
+    "note": "句式结构可学，具体词必须自己写，禁止照搬竞品原句"
+  },
+
+  "avoid": [
+    "竞品品牌名、Logo、Slogan",
+    "竞品独有的插画/IP/模特形象",
+    "未经验证的检测数据与销量",
+    "极限词：最、第一、顶级、国家级"
+  ],
+
+  "open_questions": []
+}

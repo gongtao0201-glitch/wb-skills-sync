@@ -1,0 +1,16 @@
+{
+  "name": "Canvas Design 产品海报",
+  "installedAt": 1787559590499,
+  "source": "agent_created",
+  "version": "1.0.0",
+  "skillId": "agent_canvas_design_product_poster_001",
+  "examples_zh": [
+    "用 canvas-design 给我出一张 3:2 的产品新品发布海报",
+    "基于这个文件夹里的产品图，生成一张上市海报"
+  ],
+  "examples_en": [
+    "Use canvas-design to create a 3:2 product launch poster",
+    "Generate a launch poster based on product images in this folder"
+  ],
+  "iconSource": "letter:CP"
+}

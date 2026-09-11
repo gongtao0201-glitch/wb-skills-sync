@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "spec_id": "default-taobao-v1",
+    "platform": "taobao",
+    "product_name": "示例产品"
+  },
+
+  "images": {
+    "img_main": "",
+    "img_detail_1": "",
+    "img_detail_2": "",
+    "img_detail_3": "",
+    "img_detail_4": "",
+    "img_step_1": "",
+    "img_step_2": "",
+    "img_step_3": ""
+  },
+
+  "fields": {
+    "product_name": "示例产品",
+    "core_promise": "一句话核心承诺，写给用户看的利益",
+    "one_line_position": "品类｜核心差异",
+    "point_1": "卖点一",
+    "point_2": "卖点二",
+    "point_3": "卖点三",
+    "net_weight": "待补充",
+    "water_type": "待补充",
+    "flavor": "待补充",
+    "shelf_life": "待补充"
+  },
+
+  "modules_override": {},
+
+  "open_questions": [
+    "产品图尚未提供，images 字段为空",
+    "净含量/味型/保质期等参数待补充"
+  ]
+}
