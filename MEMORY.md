@@ -51,3 +51,4 @@
 ## WorkBuddy 双机同步
 - WorkBuddy 是账号制,但**用户级技能与记忆存在本机 `~/.workbuddy`,不跟账号走**(对话/个人画像云端同步)。双机互通需手动同步或中转方案。
 - 已自建用户级技能 `workbuddy-cross-device-sync`(`~/.workbuddy/skills/`):纯标准库 `sync.py` + `SKILL.md`,`init` 配 folder/git 中转,`push`/`pull` 同步用户级技能+记忆,排除 `settings.json`/`mcp.json` 等敏感/缓存,覆盖前自动备份 `_backup`。两台都装本技能并指向同一中转即互通。
+- **GitHub 中转已启用**:仓库 `https://github.com/gongtao0201-glitch/wb-skills-sync.git`(Private),走 HTTPS + 本机代理,凭证复用 GitHub Desktop 登录态。git 本地缓存位于 `~/.workbuddy/.wb-sync/repo`,避免与技能目录嵌套。
