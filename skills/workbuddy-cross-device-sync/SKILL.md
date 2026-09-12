@@ -28,6 +28,7 @@ WorkBuddy 是账号制,但**用户级技能和记忆存在本机 `~/.workbuddy/`
 | `init --type git --remote <仓库URL>` | 配置中转为 GitHub 仓库 |
 | `init --type folder --remote <目录>` | 配置中转为共享/同步盘目录 |
 | `push` | 先 pull 远端最新,再把本机大脑推上去(有变更才 commit/push) |
+| `auto` | **发布端推荐**:先对技能/MEMORY.md/memory 做内容哈希快照,仅当检测到新增/改动时才 push(无变更直接跳过,不空跑) |
 | `pull` | 从远端拉最新并覆盖本机(覆盖前自动备份) |
 | `status` | 对比本机与远端 |
 | `doctor` | 检查环境(git / 代理 / 远端配置) |
@@ -40,14 +41,19 @@ WorkBuddy 是账号制,但**用户级技能和记忆存在本机 `~/.workbuddy/`
 3. 在其中一台运行 `init --type git --remote https://github.com/<你>/wb-skills-sync.git`。脚本会自动检查仓库是否存在,不存在则自动创建私有仓库。
 4. "源电脑"(技能/记忆全的那台)运行 `push`,把初始大脑推上仓库。git 本地缓存放在 `~/.workbuddy/.wb-sync/repo`,不与技能目录互相嵌套。
 
-## 自动化(实现你要的"自动互通")
-装好技能后,在**两台电脑**各建一个周期性自动化任务(在 WorkBuddy 里让我创建,或你自己建):
-- 频率:每 15 分钟
-- 任务提示:"运行跨设备同步:用 WorkBuddy 托管 Python 执行 `~/.workbuddy/skills/workbuddy-cross-device-sync/sync.py pull` 然后 `push`,把本机技能/记忆与 GitHub 私有仓库对齐。若发现远端有新技能,拉取后提示用户重启 WorkBuddy 以加载。"
+## 自动化(实现你要的"发布-订阅"互通)
+核心原则:**谁改了谁上传,对方按需/开机拉取**,避免两台机器定时双向 pull+push 互相无脑覆盖、制造假冲突。
+
+- **发布端(技能被新建/修改的机器)**:建一个周期性自动化,只跑 `auto`(变更检测后才 push,无变更不空跑)。
+  - 频率:每 1 小时(或任意你接受的频率)
+  - 提示:"用托管 Python 执行 `sync.py auto`。检测到新增/改动技能才推到 GitHub 私有仓库;无变更跳过。若推送了新技能,提醒另一台机器去巡检拉取。"
+- **订阅端(另一台机器)**:不定时双向跑,改为两种触发拉取:
+  - ① **开机巡检一次**:在 Windows 任务计划里建"登录时"触发,跑 `sync.py pull`(覆盖前自动备份);或让 WorkBuddy 在你登录时跑一次 pull。
+  - ② **按需巡检**:你随时说"巡检/同步",我主动跑 `sync.py pull` 把远端新技能下载到本机。
 
 效果:
-- **新增一个技能** → 15 分钟内自动 push 上云,另一台自动 pull 得到。
-- **每次打开 WorkBuddy** → 最近 15 分钟内已自动 pull 过,基本是最新;若想即时,开场说一句"同步 pull"即可。
+- **本机新增一个技能** → 自动化的 `auto` 在下个周期检测到变更即 push 上云;另一台下次开机巡检 / 你喊"巡检"时 pull 得到。
+- **不再无脑互相覆盖**:pull 只在订阅端显式触发,不会和发布端的 push 打架。
 
 ## 安全须知
 - **绝不同步** `settings.json` / `mcp.json`(含 API key / OAuth 令牌)、`node_modules`、`__pycache__`、`*.log`。

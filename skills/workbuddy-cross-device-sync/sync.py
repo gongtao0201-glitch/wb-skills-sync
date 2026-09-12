@@ -60,6 +60,9 @@ def find_desktop_git():
         candidates = [
             app / "resources" / "app" / "git" / "cmd" / "git.exe",
             app / "resources" / "app" / "git" / "mingw64" / "bin" / "git.exe",
+            # GitHub Desktop 新版把 git 放在 app 根目录
+            app / "git" / "cmd" / "git.exe",
+            app / "git" / "mingw64" / "bin" / "git.exe",
         ]
         for c in candidates:
             if c.exists():
@@ -69,6 +72,27 @@ def find_desktop_git():
 
 # 优先 GitHub Desktop 自带 git(复用登录态), 否则 fallback 系统 git
 GIT_BIN = find_desktop_git() or shutil.which("git") or "git"
+
+
+def git_base_args():
+    """
+    为系统 git 补强的全局参数。
+    - 国内/代理环境下 openssl 常出现 TLS EOF, schannel 走 Windows 系统代理更稳。
+    - 若系统 git 的 credential.helper 指向了不存在的 Desktop GCM 路径, 则改用自带 manager。
+    """
+    extras = ["-c", "http.sslbackend=schannel"]
+    # 检查当前全局 credential.helper 是否指向一个已不存在的可执行文件
+    try:
+        r = subprocess.run(
+            [GIT_BIN, "config", "--global", "credential.helper"],
+            capture_output=True, text=True, timeout=10
+        )
+        helper = r.stdout.strip()
+        if helper and not Path(helper).exists() and "credential-manager" in helper.lower():
+            extras.extend(["-c", "credential.helper=manager"])
+    except Exception:
+        pass
+    return extras
 
 
 def log(*a):
@@ -97,7 +121,7 @@ def get_github_token():
     """通过 git credential fill 获取 GitHub token(依赖 Desktop 登录态)。"""
     try:
         r = subprocess.run(
-            [GIT_BIN, "credential", "fill"],
+            [GIT_BIN] + git_base_args() + ["credential", "fill"],
             input="protocol=https\nhost=github.com\n\n",
             capture_output=True, text=True, env=git_env(), timeout=15
         )
@@ -250,7 +274,7 @@ def git_available():
 
 
 def run_git(args, check=True):
-    r = subprocess.run([GIT_BIN] + args, cwd=GIT_REPO, env=git_env())
+    r = subprocess.run([GIT_BIN] + git_base_args() + args, cwd=GIT_REPO, env=git_env())
     if check and r.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)} 失败 (code {r.returncode})")
     return r.returncode
@@ -262,7 +286,7 @@ def ensure_repo(remote):
         return
     GIT_REPO.mkdir(parents=True, exist_ok=True)
     log(f"首次 clone 仓库到本地缓存 {GIT_REPO}")
-    r = subprocess.run([GIT_BIN, "clone", remote, str(GIT_REPO)], env=git_env())
+    r = subprocess.run([GIT_BIN] + git_base_args() + ["clone", remote, str(GIT_REPO)], env=git_env())
     if r.returncode != 0:
         log("clone 失败: 请检查 ①仓库 URL 是否正确 ②网络/代理可达 ③GitHub Desktop 是否已登录")
         raise RuntimeError("git clone 失败")
@@ -362,7 +386,7 @@ def cmd_push(args):
             log(str(e)); return
         # 检查远端是否已有 commit(空仓库首次 push 不能 pull)
         ls_remote = subprocess.run(
-            [GIT_BIN, "ls-remote", "--heads", "origin", "main"],
+            [GIT_BIN] + git_base_args() + ["ls-remote", "--heads", "origin", "main"],
             cwd=GIT_REPO, env=git_env(), capture_output=True, text=True, check=False
         )
         if ls_remote.returncode == 0 and ls_remote.stdout.strip():
@@ -371,7 +395,7 @@ def cmd_push(args):
                 log("pull --rebase 冲突或失败, 请检查网络/凭证, 或手动到 .repo 解决冲突"); return
         push_to(GIT_REPO)
         run_git(["add", "."])
-        st = subprocess.run([GIT_BIN, "diff", "--cached", "--quiet"], cwd=GIT_REPO, env=git_env())
+        st = subprocess.run([GIT_BIN] + git_base_args() + ["diff", "--cached", "--quiet"], cwd=GIT_REPO, env=git_env())
         if st.returncode != 0:
             # 空仓库首次没有 parent, 加 --allow-empty 确保能 commit
             run_git(["commit", "-m", f"wb-sync {MACHINE} {datetime.datetime.now().isoformat()}"])

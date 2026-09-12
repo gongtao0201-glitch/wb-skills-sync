@@ -20,7 +20,14 @@
 
 ## 软路由小主机（网络上的另一台设备）
 - **iStoreOS（OpenWrt 系），管理地址 192.168.100.1**，root 密码 a8797796，与本机同网段、可 SSH
-- CPU Intel Pentium 4415Y；主板 Super I/O = **ITE IT8772E**（hwmon4）；风扇插在 **fan2** 座
+- **硬件实测（2026-09-12 修正）**：CPU **Intel Pentium 4417U @2.3GHz**（非 4415Y），双核四线程，支持 AES-NI；内存 **4GB**（无 swap）；NVMe 119.2G；4 网口（eth0=WAN 接光猫 192.168.68.0/24，eth1-3 空闲，br-lan=192.168.100.1）；主板 Super I/O = **ITE IT8772E**（hwmon4）；风扇插在 **fan2** 座
+- **拓扑（重要）**：小主机是**光猫（192.168.68.1）下的二级路由**，和其他房间路由器是平级兄弟 → 只有它自己 LAN 侧（192.168.100.x，下面还挂一台 360 T5G）的设备受它管理。eth0 主地址 DHCP 192.168.68.135，另配了别名接口 wandns = **192.168.68.2**（固定，供全屋填 DNS）
+- **2026-09-12 磁盘扩容**：overlay 已从 1.9G 扩到 **116.9G**（p3 扩到全盘），Docker Root Dir `/overlay/upper/opt/docker` 随之有 116.8G；已建 `/data`（download/media/backup/share/scripts/docker-compose）。坑：parted 对 busy 分区要用 `printf 'Yes\n' | parted ---pretend-input-tty ...`；ash 不支持 `{a,b}` 花括号展开
+- **2026-09-12 全屋 DNS 去广告**：opkg 装 AdGuard Home 0.107.57；dnsmasq 让出 53 改到 **5354**；AdGuard 监听 0.0.0.0:53；管理页 **http://192.168.100.1:3000（admin / xifeng2026，建议改）**；规则 27.1 万条（源用 adguardteam.github.io + raw.githubusercontent.com，**jsdelivr/anti-ad.net 在这台机器不通**）；防火墙已放行 WAN 侧 53
+  - **只去广告不管翻墙**；全屋翻墙需旁路网关 + mihomo 透明代理（现在 mihomo 是纯端口模式 redir-port=0）
+  - **排障铁律：在路由器上 `curl -x 127.0.0.1:7892` 自测代理必返回 000**，mihomo 有 reject loopback 规则，不是代理坏了；要看 `/tmp/openclash.log` 里的 `using 主代理[节点]`
+  - 回滚：`uci set dhcp.@dnsmasq[0].port='53'; uci commit dhcp; /etc/init.d/adguardhome stop; /etc/init.d/dnsmasq restart`
+  - 详见 skill `istoreos-adguard-whole-home` / `istoreos-overlay-expand`
 - 2026-09-11 修复：换 4 线 PWM 风扇后不转，根因是 IT8772E 自动温控曲线 50°C 以下输出 0 占空比
   - 小主机上已部署 `/etc/fancontrol.sh`（温度分档自动调速）+ cron 每 2 分钟执行，日志 `/tmp/fan.log`；开机自启走 `/etc/rc.local`
 - **关机方式（重要，用户曾因直接断电搞崩系统）**：根文件系统是 ext4 overlay 在 NVMe 上，断电会写坏。**短按一下机身电源键 = 优雅关机**（/etc/rc.button/power → /sbin/poweroff）；**长按 4-5 秒是硬件强制断电，禁止**；LuCI 网页只有重启没有关机
