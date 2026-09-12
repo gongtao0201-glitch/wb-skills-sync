@@ -29,6 +29,7 @@ import datetime
 import argparse
 import subprocess
 import re
+import hashlib
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -38,6 +39,7 @@ SKILL_DIR = Path(__file__).resolve().parent
 CONFIG = SKILL_DIR / "config.json"
 BACKUP = SKILL_DIR / "_backup"
 GIT_REPO = APP / ".wb-sync" / "repo"   # git 模式本地缓存,放在 APP 下避免与技能目录互相嵌套
+MANIFEST = APP / ".wb-sync" / "manifest.json"  # 本机上次推送的内容快照, 不随技能同步
 MACHINE = os.environ.get("COMPUTERNAME", "unknown")
 
 # 同步时永远忽略的东西
@@ -266,6 +268,63 @@ def ensure_repo(remote):
         raise RuntimeError("git clone 失败")
 
 
+def _ignore_file(f):
+    """变更检测时跳过的文件(与安全/缓存相关, 不参与同步比较)。"""
+    if f.name in ("settings.json", "mcp.json"):
+        return True
+    if f.suffix == ".log":
+        return True
+    for part in f.parts:
+        if part in ("node_modules", "__pycache__", ".git", "_backup", ".repo"):
+            return True
+    return False
+
+
+def brain_hash():
+    """对每个大脑源(技能/MEMORY.md/memory)计算内容哈希, 用于变更检测。"""
+    h = {}
+    for name, src in brain_sources():
+        if src.is_dir():
+            dig = hashlib.sha256()
+            for f in sorted(src.rglob("*")):
+                if f.is_file() and not _ignore_file(f):
+                    dig.update(str(f.relative_to(src)).encode("utf-8"))
+                    dig.update(f.read_bytes())
+            h[name] = dig.hexdigest()
+        elif src.exists():
+            h[name] = hashlib.sha256(src.read_bytes()).hexdigest()
+    return h
+
+
+def load_manifest():
+    try:
+        if MANIFEST.exists():
+            return json.loads(MANIFEST.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def save_manifest(h):
+    MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    MANIFEST.write_text(json.dumps(h, ensure_ascii=False), encoding="utf-8")
+
+
+def cmd_auto(args):
+    """变更检测: 仅当技能/MEMORY/memory 有新增或改动时才 push 到远端(发布端角色)。"""
+    cur = brain_hash()
+    prev = load_manifest()
+    changed = {k: v for k, v in cur.items() if prev.get(k) != v}
+    if not changed:
+        log("无新增/改动技能, 跳过 push (与上次推送一致)")
+        return
+    names = ", ".join(changed.keys())
+    log(f"检测到变更源: {names} -> 准备推送到远端")
+    cmd_push(args)          # 走现有 git 流程(含 pull --rebase 以合并远端对方可能的新增)
+    save_manifest(cur)
+    log("已更新本地变更快照(.wb-sync/manifest.json)")
+
+
 def cmd_init(args):
     cfg = load_cfg()
     cfg["remote_type"] = args.type
@@ -404,6 +463,7 @@ def main():
     pi.set_defaults(func=cmd_init)
     sub.add_parser("push", help="把本机大脑推到远端").set_defaults(func=cmd_push)
     sub.add_parser("pull", help="从远端拉回本机").set_defaults(func=cmd_pull)
+    sub.add_parser("auto", help="变更检测: 仅新增/改动技能时才 push").set_defaults(func=cmd_auto)
     sub.add_parser("status", help="对比本机与远端").set_defaults(func=cmd_status)
     sub.add_parser("doctor", help="检查环境").set_defaults(func=cmd_doctor)
     args = p.parse_args()
