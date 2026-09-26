@@ -11,6 +11,7 @@ WorkBuddy 是账号制,但**用户级技能和记忆存在本机 `~/.workbuddy/`
 ## 中转选择
 - **GitHub 私有仓库(推荐, 跨网/跨地点)**: `remote` 填 `https://github.com/<你>/wb-skills-sync.git`。走本机代理,凭证复用 GitHub Desktop 登录。
 - folder: 局域网共享目录 / 云盘同步空间(同地点用,零外部依赖)。
+- **api(代理环境救星)**: `remote` 填同样的 GitHub 仓库 URL, 但 `init --type api`。脚本直接用 GitHub REST API 操作仓库(走 `api.github.com`, 代理/直连都放行), 令牌自动从本机取(macOS 钥匙串 `"GitHub - https://api.github.com"` / Windows `git credential fill` / 或 config.json 的 `token` 字段), **无需 git 二进制**。适合 macOS 上 git 通道被代理挡死、装不了 GitHub Desktop 的场景。
 
 ## 触发词(在对话中说)
 - "同步技能" / "同步记忆" / "跨设备同步" / "把技能同步到另一台电脑"
@@ -38,8 +39,8 @@ WorkBuddy 是账号制,但**用户级技能和记忆存在本机 `~/.workbuddy/`
 2. **GitHub Desktop 登录**(只需做一次, 全局有效):
    - 在两台电脑都打开 GitHub Desktop,登录**同一个 GitHub 账号**。
    - 国内访问走本机 `HTTPS_PROXY` 代理(脚本自动继承);SSH 22 端口通常被墙,**务必用 HTTPS URL 而非 SSH**。
-3. 在其中一台运行 `init --type git --remote https://github.com/<你>/wb-skills-sync.git`。脚本会自动检查仓库是否存在,不存在则自动创建私有仓库。
-4. "源电脑"(技能/记忆全的那台)运行 `push`,把初始大脑推上仓库。git 本地缓存放在 `~/.workbuddy/.wb-sync/repo`,不与技能目录互相嵌套。
+3. 在其中一台运行 `init --type git --remote https://github.com/<你>/wb-skills-sync.git`。脚本会自动检查仓库是否存在,不存在则自动创建私有仓库。**(若 git 通道不通 / 没装 git / 装不了 GitHub Desktop, 改用 `init --type api --remote <同一URL>` ——走 GitHub API, 零 git 依赖。)**: 
+4. "源电脑"(技能/记忆全的那台)运行 `push`(或 `auto`),把初始大脑推上仓库。git/api 模式不落本地仓库缓存;folder 模式直接写共享目录。
 
 ## 自动化(实现你要的"发布-订阅"互通)
 核心原则:**谁改了谁上传,对方按需/开机拉取**,避免两台机器定时双向 pull+push 互相无脑覆盖、制造假冲突。
@@ -56,7 +57,7 @@ WorkBuddy 是账号制,但**用户级技能和记忆存在本机 `~/.workbuddy/`
 - **不再无脑互相覆盖**:pull 只在订阅端显式触发,不会和发布端的 push 打架。
 
 ## 安全须知
-- **绝不同步** `settings.json` / `mcp.json`(含 API key / OAuth 令牌)、`node_modules`、`__pycache__`、`*.log`。
+- **绝不同步** `settings.json` / `mcp.json`(含 API key / OAuth 令牌)、`config.json`(本机 remote/模式/可选 token, 每台机器独立)、`node_modules`、`__pycache__`、`*.log`。
 - 每次覆盖目标前,自动把被覆盖内容备份到技能目录 `_backup/<时间戳>/`,误覆盖可手动找回。
 - 中转仓库请设为**私有**(Private)。
 - 同一时刻尽量只在一台改"大脑",避免互盖;git 模式用 rebase,若冲突会提示手动解决。
