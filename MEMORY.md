@@ -59,3 +59,11 @@
 - WorkBuddy 是账号制,但**用户级技能与记忆存在本机 `~/.workbuddy`,不跟账号走**(对话/个人画像云端同步)。双机互通需手动同步或中转方案。
 - 已自建用户级技能 `workbuddy-cross-device-sync`(`~/.workbuddy/skills/`):纯标准库 `sync.py` + `SKILL.md`,`init` 配 folder/git 中转,`push`/`pull` 同步用户级技能+记忆,排除 `settings.json`/`mcp.json` 等敏感/缓存,覆盖前自动备份 `_backup`。两台都装本技能并指向同一中转即互通。
 - **GitHub 中转已启用**:仓库 `https://github.com/gongtao0201-glitch/wb-skills-sync.git`(Private),走 HTTPS + 本机代理,凭证复用 GitHub Desktop 登录态。git 本地缓存位于 `~/.workbuddy/.wb-sync/repo`,避免与技能目录嵌套。
+
+## Mac 设备（madeMac-mini.local，2026-09-26 接入）
+- 这是一台 **macOS** 设备（Intel x86_64，macOS 12.7.6），**不是**上面说的 Windows「新电脑」。与 A 机（Windows）共享同一 WorkBuddy 账号与同步仓库，是双机互通的「另一台」。
+- **跨设备同步改用 api 模式**：本机 git 通道被代理挡死（`git` 的 CONNECT 隧道返回 502 / HTTP2 帧错误），且 GitHub Desktop 存的钥匙串 service 名（`GitHub - https://api.github.com`）与 git 的 osxkeychain（`github.com`）不匹配，git 读不到令牌。故 `workbuddy-cross-device-sync` 的 `sync.py` 已改造支持 `api` 中转类型（走 `api.github.com`，代理与直连均放行，实测直连也是 200）。
+- **令牌复用**：本机钥匙串已有 GitHub OAuth 令牌（来自浏览器登录），`sync.py` 的 `get_github_token()` 在 macOS 优先从钥匙串 `security find-generic-password -s "GitHub - https://api.github.com"` 读取，无需生成 PAT。
+- **关键坑：`config.json` 每台机器独立，绝不参与同步**（已加入 `sync.py` 的 IGNORE 与 `_ignore_file`）。否则 A 机/Mac 的 remote/模式会互相覆盖，且可能泄漏本机令牌。sync.py 代码本身（共享逻辑）会同步，但 config 不会。
+- 视频引擎 3 个（remotion-video-toolkit / wuding-kinetic-video / seedance）不在仓库，靠「兜底 zip」安装；仓库里的 skills 是其余共享技能。
+- 用法：装好同步技能后 `init --type api --remote https://github.com/gongtao0201-glitch/wb-skills-sync.git`；发布端喊「同步」跑 `auto`，订阅端开机/定时跑 `pull`（覆盖前自动备份到 `_backup`）。
