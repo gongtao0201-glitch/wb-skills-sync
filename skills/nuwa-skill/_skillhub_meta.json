@@ -1,0 +1,10 @@
+{
+  "name": "女娲",
+  "installedAt": 1778144572050,
+  "source": "marketplace",
+  "iconSource": "nuwa-skill",
+  "version": "1.0.5",
+  "skillId": "skill_2053082488497897472",
+  "skillName": "nuwa-skill",
+  "installedContentHash": "sha256:9741e21f3733fcf2d3e7d19a0e3a3f57ab9795b422bf7e23b2f8d2beb0f8c917"
+}

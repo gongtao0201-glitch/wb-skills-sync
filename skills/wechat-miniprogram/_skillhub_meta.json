@@ -1,0 +1,12 @@
+{
+  "name": "微信小程序开发框架",
+  "installedAt": 1778144525178,
+  "source": "marketplace",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/wechat-miniprogram.svg",
+  "version": "1.0.0",
+  "skillId": "skill_2053083649073352704",
+  "iconLocalPath": "C:\\Users\\Administrator\\.workbuddy\\skills\\wechat-miniprogram\\_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/wechat-miniprogram.svg",
+  "skillName": "wechat-miniprogram",
+  "installedContentHash": "sha256:b2600fdd6fd3e53a1597c1be09a52fb763fe8b8af8d536933c567726679846c2"
+}

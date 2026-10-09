@@ -1,0 +1,14 @@
+{
+  "name": "腾讯乐享",
+  "installedAt": 1778144359064,
+  "source": "marketplace",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/lexiang-knowledge-base.png",
+  "version": "2.2.0",
+  "skillId": "skill_2053082968316399616",
+  "skillName": "lexiang-knowledge-base",
+  "iconLocalPath": "C:\\Users\\Administrator\\.workbuddy\\skills\\lexiang-knowledge-base\\_icon.png",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/lexiang-knowledge-base.png",
+  "installedContentHash": "sha256:1b7ecd50e3bb12f8f7ffdb18b5ddfb4048ca036a587fcdd861c4f0f189fbb3f6",
+  "description_zh": "支持多源导入、多模态问答、PPT生成的原生Agentic知识库，深度解析图文与音视频，为Agent注入高质量、安全可控的知识",
+  "description_en": "An Agentic knowledge base with multi-source import, multi-modal Q&A, and PPT generation. It deeply parses text and multimedia, equipping Agents with high-quality, secure knowledge"
+}

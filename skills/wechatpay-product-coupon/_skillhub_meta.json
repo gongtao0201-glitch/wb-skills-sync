@@ -1,0 +1,10 @@
+{
+  "name": "微信支付商品券",
+  "installedAt": 1778144441003,
+  "source": "marketplace",
+  "iconSource": "wechatpay-product-coupon",
+  "version": "1.0.3",
+  "skillId": "skill_2053083481347330048",
+  "skillName": "wechatpay-product-coupon",
+  "installedContentHash": "sha256:ecbfc6b2cba0a98a954289ef6aedb57048eb2d60259f3cb0c458b73fed6a838c"
+}

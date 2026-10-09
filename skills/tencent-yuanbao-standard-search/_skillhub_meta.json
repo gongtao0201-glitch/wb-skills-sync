@@ -1,0 +1,12 @@
+{
+  "name": "元宝搜索标准版",
+  "installedAt": 1778144430892,
+  "source": "marketplace",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/tencent-yuanbao-standard-search.svg",
+  "version": "1.0.1",
+  "skillId": "skill_2053085047000309760",
+  "iconLocalPath": "C:\\Users\\Administrator\\.workbuddy\\skills\\tencent-yuanbao-standard-search\\_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/tencent-yuanbao-standard-search.svg",
+  "skillName": "tencent-yuanbao-standard-search",
+  "installedContentHash": "sha256:c38e7b8a93e86d049079d2b28c92085c0d9dccdd733d781404e0e88ad481f589"
+}

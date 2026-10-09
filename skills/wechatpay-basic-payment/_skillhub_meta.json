@@ -1,0 +1,10 @@
+{
+  "name": "微信支付基础支付",
+  "installedAt": 1778144437578,
+  "source": "marketplace",
+  "iconSource": "wechatpay-basic-payment",
+  "version": "1.0.2",
+  "skillId": "skill_2053083402814226432",
+  "skillName": "wechatpay-basic-payment",
+  "installedContentHash": "sha256:1aae6d4b15d43078ae5deb86e6007118487afeac97d6b423a9b5a99c963bc7f8"
+}

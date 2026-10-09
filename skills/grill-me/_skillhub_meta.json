@@ -1,0 +1,21 @@
+{
+  "name": "grill-me",
+  "installedAt": 1790064046156,
+  "source": "marketplace",
+  "version": "1.0.0",
+  "skillId": "skill_2057443369928683520",
+  "examples_zh": [
+    "grill me，帮我审查这个方案",
+    "我想做个新功能，先帮我追问一遍",
+    "挑战我的设计，找出盲点"
+  ],
+  "examples_en": [
+    "grill me on this plan",
+    "challenge my design decisions",
+    "stress-test this architecture"
+  ],
+  "iconSource": "letter:auto",
+  "installedContentHash": "sha256:bdca0d7999e38cfbefd14daa32fd1655247bd02713f99791edbcb5b2418e6ef1",
+  "description_zh": "深度追问式方案审查：逐层拆解设计决策，直到达成共识",
+  "description_en": "Relentless interview to stress-test your plan, resolving each decision branch one by one"
+}

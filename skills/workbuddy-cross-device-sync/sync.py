@@ -5,12 +5,9 @@ WorkBuddy 跨设备同步技能  (workbuddy-cross-device-sync)
 把本机的"大脑"——用户级技能(~/.workbuddy/skills) + 用户级记忆(MEMORY.md)——
 同步到另一台装了同技能的电脑,实现技能和记忆互通。
 
-支持三种中转(在 init 时选择):
+支持两种中转(在 init 时选择):
   - folder : 一个共享/同步盘目录(局域网 SMB 或 云盘同步空间),零外部依赖
   - git    : 一个 Git 仓库(推荐 GitHub 私有仓库, 跨网/跨地点通用)
-  - api    : 直接用 GitHub REST API 操作私有仓库(无需 git 二进制,
-             适合代理环境把 git 通道挡死、但 api.github.com 放行的场景,
-             例如本机装了 GitHub Desktop 登录后令牌在钥匙串 macOS 上)
 
 git 模式说明:
   - 优先使用 GitHub Desktop 自带 git, 自动复用它的登录态(无需手动 PAT/SSH)
@@ -19,35 +16,23 @@ git 模式说明:
   - 首次运行会自动 clone 到技能目录下的 .repo 缓存, 之后 pull/push 都走它
   - 走本机 env 里的 HTTPS_PROXY/HTTP_PROXY 代理(适配国内上网环境)
 
-api 模式说明:
-  - 自动从本机取 GitHub 令牌: macOS 钥匙串("GitHub - https://api.github.com")优先,
-    Windows 走 git credential fill, 也可在 config.json 显式写 token。
-  - 走 api.github.com(代理通常放行, 不像 git 的 CONNECT 隧道被挡)。
-  - push 前会先 pull 合并远端(避免覆盖对方新增), 再上传本机全量并删除远端多余项。
-  - 安全策略同 git: 永不碰 settings.json / mcp.json / 本机 config.json(机器本地配置)。
-
 安全策略:
-  - 排除 settings.json / mcp.json / config.json(含 API key / OAuth 令牌 / 本机 remote 配置, 每台机器独立, 绝不外传)
+  - 排除 settings.json / mcp.json(含 API key / OAuth 令牌, 绝不外传)
   - 排除 node_modules / __pycache__ / .git / _backup / *.log
   - 每次覆盖目标前自动备份到 _backup/<时间戳>, 可回滚
 """
 
 import os
-import sys
-import re
 import json
-import base64
 import shutil
 import datetime
 import argparse
 import subprocess
-import platform
-import socket
+import re
 import hashlib
 import urllib.request
 import urllib.error
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
 
 APP = Path(os.environ.get("USERPROFILE", Path.home())) / ".workbuddy"
 SKILL_DIR = Path(__file__).resolve().parent
@@ -55,19 +40,13 @@ CONFIG = SKILL_DIR / "config.json"
 BACKUP = SKILL_DIR / "_backup"
 GIT_REPO = APP / ".wb-sync" / "repo"   # git 模式本地缓存,放在 APP 下避免与技能目录互相嵌套
 MANIFEST = APP / ".wb-sync" / "manifest.json"  # 本机上次推送的内容快照, 不随技能同步
-MACHINE = (os.environ.get("COMPUTERNAME")
-           or os.environ.get("HOSTNAME")
-           or socket.gethostname()
-           or platform.node()
-           or "unknown")
+MACHINE = os.environ.get("COMPUTERNAME", "unknown")
 
-# 同步时永远忽略的东西(本机配置/缓存/凭据)
+# 同步时永远忽略的东西
 IGNORE = shutil.ignore_patterns(
     "node_modules", "__pycache__", ".git", "_backup", ".repo",
-    "*.log", "settings.json", "mcp.json", "config.json",
+    "*.log", "settings.json", "mcp.json",
 )
-# 仅这些前缀的仓库文件参与同步(绝不碰 settings.json/mcp.json/config.json/其他根文件)
-SYNC_PREFIX = ("skills/", "MEMORY.md", "memory/")
 
 
 def find_desktop_git():
@@ -139,34 +118,18 @@ def git_env():
 
 
 def get_github_token():
-    """多策略获取 GitHub 令牌, 优先级: config.token > macOS 钥匙串 > git credential fill。"""
-    # 1. 配置里显式指定的 token(可选)
-    cfg = load_cfg()
-    if cfg.get("token"):
-        return cfg["token"].strip()
-    # 2. macOS 钥匙串: GitHub Desktop / gh 存的 "GitHub - https://api.github.com"
-    if platform.system() == "Darwin":
-        for svc in ("GitHub - https://api.github.com", "github.com"):
-            try:
-                r = subprocess.run(
-                    ["security", "find-generic-password", "-s", svc, "-w"],
-                    capture_output=True, text=True, timeout=15,
-                )
-                if r.returncode == 0 and r.stdout.strip():
-                    return r.stdout.strip()
-            except Exception:
-                pass
-    # 3. Windows / 已配置 git credential 的机器: 走 git credential fill
+    """通过 git credential fill 获取 GitHub token(依赖 Desktop 登录态)。"""
     try:
         r = subprocess.run(
             [GIT_BIN] + git_base_args() + ["credential", "fill"],
             input="protocol=https\nhost=github.com\n\n",
-            capture_output=True, text=True, env=git_env(), timeout=15,
+            capture_output=True, text=True, env=git_env(), timeout=15
         )
-        if r.returncode == 0:
-            for line in r.stdout.splitlines():
-                if line.startswith("password="):
-                    return line.split("=", 1)[1].strip()
+        if r.returncode != 0:
+            return None
+        for line in r.stdout.splitlines():
+            if line.startswith("password="):
+                return line.split("=", 1)[1].strip()
     except Exception:
         pass
     return None
@@ -196,7 +159,7 @@ def github_api(token, url, method="GET", data=None):
         body = None
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=20) as resp:
             return resp.status, json.loads(resp.read().decode("utf-8") or "{}")
     except urllib.error.HTTPError as e:
         return e.code, json.loads(e.read().decode("utf-8") or "{}")
@@ -204,151 +167,14 @@ def github_api(token, url, method="GET", data=None):
         return 0, {"error": str(e)}
 
 
-# ---------------- API 模式核心 ----------------
-
-def api_get_default_branch(token, owner, repo):
-    status, body = github_api(token, f"https://api.github.com/repos/{owner}/{repo}")
-    if status == 200 and isinstance(body, dict):
-        return body.get("default_branch", "main")
-    return "main"
-
-
-def api_get_tree(token, owner, repo, branch):
-    """递归获取仓库文件树, 返回 (tree_list, branch_used) 或 (None, branch)。"""
-    url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
-    status, body = github_api(token, url)
-    if status == 200 and isinstance(body, dict) and "tree" in body:
-        return body["tree"], branch
-    # 默认分支可能不是传入的, 试一下 main/master
-    for alt in ("main", "master"):
-        if alt == branch:
-            continue
-        url2 = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{alt}?recursive=1"
-        s2, b2 = github_api(token, url2)
-        if s2 == 200 and isinstance(b2, dict) and "tree" in b2:
-            return b2["tree"], alt
-    return None, branch
-
-
-def api_get_file(token, owner, repo, path, branch):
-    """返回 (content_bytes, sha) 或 (None, None)。"""
-    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}"
-    status, body = github_api(token, url)
-    if status == 200 and isinstance(body, dict) and "content" in body:
-        try:
-            data = base64.b64decode(body["content"])
-            return data, body.get("sha")
-        except Exception:
-            return None, None
-    return None, None
-
-
-def api_put_file(token, owner, repo, path, content_bytes, sha=None, branch="main"):
-    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
-    data = {
-        "message": f"wb-sync {MACHINE}: put {path}",
-        "content": base64.b64encode(content_bytes).decode("ascii"),
-        "branch": branch,
-    }
-    if sha:
-        data["sha"] = sha
-    return github_api(token, url, "PUT", data)
-
-
-def api_delete_file(token, owner, repo, path, sha, branch="main"):
-    url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
-    data = {"message": f"wb-sync {MACHINE}: delete {path}", "sha": sha, "branch": branch}
-    return github_api(token, url, "DELETE", data)
-
-
-def cmd_pull_api(token, owner, repo, branch):
-    """从仓库拉 skills/MEMORY.md/memory 到本机(覆盖前自动备份)。返回是否成功。"""
-    tree, branch = api_get_tree(token, owner, repo, branch)
-    if tree is None:
-        log("api pull 失败: 无法获取仓库文件树(检查令牌/仓库/网络)")
-        return False
-    files = [t for t in tree
-             if t.get("type") == "blob"
-             and t.get("path", "") not in ("settings.json", "mcp.json", "config.json")
-             and t["path"].startswith(SYNC_PREFIX)]
-    if not files:
-        log("api pull: 仓库里没有可同步的大脑文件")
-        return True
-    ok = 0
-    for t in files:
-        p = t["path"]
-        content, _ = api_get_file(token, owner, repo, p, branch)
-        if content is None:
-            log(f"  跳过(读不到): {p}")
-            continue
-        dst = APP / p
-        if dst.exists():
-            backup_target(dst)
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        dst.write_bytes(content)
-        ok += 1
-        log(f"  已拉取: {p}")
-    log(f"api pull 完成: 成功 {ok}/{len(files)} 个文件 (分支 {branch})")
-    return True
-
-
-def cmd_push_api(token, owner, repo, branch):
-    """先合并远端(避免覆盖对方新增), 再把本机脑全量上传, 并删除远端多余项。"""
-    # 1) 先 pull 合并远端到本机(幂等, 不删本机独有)
-    cmd_pull_api(token, owner, repo, branch)
-    # 2) 收集本机要同步的文件(排除 config.json 等本机配置)
-    local_files = []
-    for name, src in brain_sources():
-        if src.is_dir():
-            for f in sorted(src.rglob("*")):
-                if f.is_file() and not _ignore_file(f):
-                    local_files.append((str(f.relative_to(APP)), f.read_bytes()))
-        elif src.exists():
-            local_files.append((name, src.read_bytes()))
-    local_paths = set(p for p, _ in local_files)
-    # 3) 远端现有文件映射
-    tree, branch = api_get_tree(token, owner, repo, branch)
-    remote_files = {}
-    if tree:
-        for t in tree:
-            if t.get("type") == "blob":
-                remote_files[t["path"]] = t.get("sha")
-    # 4) 上传/更新(并发, 控制节奏)
-    def _put(item):
-        p, data = item
-        rsha = remote_files.get(p)
-        st, b = api_put_file(token, owner, repo, p, data, sha=rsha, branch=branch)
-        return p, st, b
-    with ThreadPoolExecutor(max_workers=4) as ex:
-        for p, st, b in ex.map(_put, local_files):
-            if st in (200, 201):
-                log(f"  已上传: {p}")
-            else:
-                msg = b.get("message", "") if isinstance(b, dict) else str(b)
-                log(f"  上传失败 {p}: {st} {msg}")
-    # 5) 删除远端有但本机没有的(双向一致; 仅同步范围内, 不碰 config.json)
-    for rpath, rsha in remote_files.items():
-        if rpath in ("settings.json", "mcp.json", "config.json"):
-            continue
-        if not rpath.startswith(SYNC_PREFIX):
-            continue
-        if rpath not in local_paths:
-            st, b = api_delete_file(token, owner, repo, rpath, rsha, branch)
-            log(f"  已删除远端多余: {rpath} ({st})")
-    log(f"api push 完成 (分支 {branch})")
-    return True
-
-
-# ---------------- 通用(文件夹/git) ----------------
-
 def ensure_github_repo(remote):
-    """若 remote 是 GitHub 且仓库不存在, 用令牌自动创建私有仓库。"""
+    """若 remote 是 GitHub 且仓库不存在, 用 Desktop 登录态自动创建私有仓库。"""
     owner, repo = parse_github_remote(remote)
     if not owner or not repo:
         return
     token = get_github_token()
     if not token:
-        log("提示: 未获取到 GitHub 令牌, 请确认 GitHub Desktop 已登录或 config.json 已配置 token; 跳过自动创建仓库")
+        log("提示: 未获取到 GitHub 登录态, 请确认 GitHub Desktop 已登录; 跳过自动创建仓库")
         return
     # 检查仓库是否存在
     status, body = github_api(token, f"https://api.github.com/repos/{owner}/{repo}")
@@ -356,7 +182,7 @@ def ensure_github_repo(remote):
         log(f"GitHub 仓库 {owner}/{repo} 已存在")
         return
     if status == 404:
-        log(f"仓库 {owner}/{repo} 不存在, 正在用当前令牌自动创建私有仓库...")
+        log(f"仓库 {owner}/{repo} 不存在, 正在用当前登录态自动创建私有仓库...")
         status2, body2 = github_api(
             token, "https://api.github.com/user/repos", "POST",
             {"name": repo, "private": True, "description": "WorkBuddy 跨设备技能与记忆同步"}
@@ -467,8 +293,8 @@ def ensure_repo(remote):
 
 
 def _ignore_file(f):
-    """变更检测时跳过的文件(与安全/缓存/本机配置相关, 不参与同步比较)。"""
-    if f.name in ("settings.json", "mcp.json", "config.json"):
+    """变更检测时跳过的文件(与安全/缓存相关, 不参与同步比较)。"""
+    if f.name in ("settings.json", "mcp.json"):
         return True
     if f.suffix == ".log":
         return True
@@ -509,37 +335,16 @@ def save_manifest(h):
 
 
 def cmd_auto(args):
-    """变更检测: 先合并远端, 仅当技能/MEMORY/memory 有新增或改动时才 push 到远端(发布端角色)。"""
-    cfg = load_cfg()
-    rt = cfg.get("remote_type")
-    # 先合并远端(幂等), 保证后续哈希比较准确
-    if rt == "git":
-        try:
-            ensure_repo(cfg["remote"])
-            run_git(["pull", "--rebase"], check=False)
-        except Exception as e:
-            log(f"合并远端失败(继续): {e}")
-    elif rt == "api":
-        token = get_github_token()
-        if not token:
-            log("未获取到 GitHub 令牌, 无法合并远端"); return
-        owner, repo = parse_github_remote(cfg["remote"])
-        if not owner:
-            log("remote 解析失败"); return
-        branch = api_get_default_branch(token, owner, repo)
-        cmd_pull_api(token, owner, repo, branch)
-    elif rt == "folder":
-        pull_from(cfg["remote"])
-
+    """变更检测: 仅当技能/MEMORY/memory 有新增或改动时才 push 到远端(发布端角色)。"""
     cur = brain_hash()
     prev = load_manifest()
     changed = {k: v for k, v in cur.items() if prev.get(k) != v}
     if not changed:
-        log("无新增/改动, 跳过 push (与上次同步一致)")
+        log("无新增/改动技能, 跳过 push (与上次推送一致)")
         return
     names = ", ".join(changed.keys())
     log(f"检测到变更源: {names} -> 准备推送到远端")
-    cmd_push(args)
+    cmd_push(args)          # 走现有 git 流程(含 pull --rebase 以合并远端对方可能的新增)
     save_manifest(cur)
     log("已更新本地变更快照(.wb-sync/manifest.json)")
 
@@ -561,49 +366,17 @@ def cmd_init(args):
                 log("git 仓库已就绪")
             except RuntimeError as e:
                 log(str(e))
-    elif args.type == "api":
-        token = get_github_token()
-        if not token:
-            log("警告: 未获取到 GitHub 令牌(请确认 GitHub Desktop 已登录 / macOS 钥匙串有条目 / 或 config.json 配置 token)")
-        else:
-            owner, repo = parse_github_remote(args.remote)
-            if owner:
-                branch = api_get_default_branch(token, owner, repo)
-                status, body = github_api(token, f"https://api.github.com/repos/{owner}/{repo}")
-                if status == 200:
-                    log(f"✅ 令牌有效, 仓库 {owner}/{repo} 可访问 (默认分支 {branch})")
-                elif status == 404:
-                    log(f"仓库 {owner}/{repo} 不存在, 可用令牌自动创建私有仓库(运行 push 时创建)")
-                else:
-                    log(f"⚠️ 检查仓库失败: {status} {body.get('message','') if isinstance(body,dict) else body}")
-            else:
-                log("警告: 无法解析 remote 为 GitHub 仓库 URL")
-    elif args.type == "folder":
-        if not Path(args.remote).exists():
-            log(f"提示: 共享目录 {args.remote} 不存在, 首次 push 时会创建")
 
 
 def cmd_push(args):
     cfg = load_cfg()
     if not cfg.get("remote"):
-        log("未配置远端, 先运行: python sync.py init --type api --remote <仓库URL>")
+        log("未配置远端, 先运行: python sync.py init --type git --remote <仓库URL>")
         return
     rt, remote = cfg["remote_type"], cfg["remote"]
     if rt == "folder":
         push_to(remote)
         log(f"已 push 到 {remote} (folder)")
-    elif rt == "api":
-        token = get_github_token()
-        if not token:
-            log("未获取到 GitHub 令牌, 无法 push"); return
-        owner, repo = parse_github_remote(remote)
-        if not owner:
-            log("remote 解析失败"); return
-        branch = api_get_default_branch(token, owner, repo)
-        if not api_get_tree(token, owner, repo, branch)[0]:
-            # 仓库可能为空, 确保存在
-            ensure_github_repo(remote)
-        cmd_push_api(token, owner, repo, branch)
     elif rt == "git":
         if not git_available():
             log("需要 git"); return
@@ -611,6 +384,7 @@ def cmd_push(args):
             ensure_repo(remote)
         except RuntimeError as e:
             log(str(e)); return
+        # 检查远端是否已有 commit(空仓库首次 push 不能 pull)
         ls_remote = subprocess.run(
             [GIT_BIN] + git_base_args() + ["ls-remote", "--heads", "origin", "main"],
             cwd=GIT_REPO, env=git_env(), capture_output=True, text=True, check=False
@@ -623,6 +397,7 @@ def cmd_push(args):
         run_git(["add", "."])
         st = subprocess.run([GIT_BIN] + git_base_args() + ["diff", "--cached", "--quiet"], cwd=GIT_REPO, env=git_env())
         if st.returncode != 0:
+            # 空仓库首次没有 parent, 加 --allow-empty 确保能 commit
             run_git(["commit", "-m", f"wb-sync {MACHINE} {datetime.datetime.now().isoformat()}"])
             rc2 = run_git(["push", "-u", "origin", "main"], check=False)
             if rc2 != 0:
@@ -650,17 +425,6 @@ def cmd_pull(args):
         if not pull_from(remote):
             return
         log(f"已 pull 自 {remote} (folder)")
-    elif rt == "api":
-        token = get_github_token()
-        if not token:
-            log("未获取到 GitHub 令牌, 无法 pull"); return
-        owner, repo = parse_github_remote(remote)
-        if not owner:
-            log("remote 解析失败"); return
-        branch = api_get_default_branch(token, owner, repo)
-        if not cmd_pull_api(token, owner, repo, branch):
-            return
-        log(f"已 pull 自 git(api) {remote}")
     elif rt == "git":
         if not git_available():
             log("需要 git"); return
@@ -681,68 +445,35 @@ def count_files(p):
         return 0
     if p.is_file():
         return 1
-    return sum(1 for _ in p.rglob("*") if _.is_file() and _.name not in ("settings.json", "mcp.json", "config.json")
+    return sum(1 for _ in p.rglob("*") if _.is_file() and _.name not in ("settings.json", "mcp.json")
                and not any(part in ("node_modules", "__pycache__", ".git", "_backup") for part in _.parts)
                and _.suffix != ".log")
 
 
 def cmd_status(args):
     cfg = load_cfg()
-    log(f"本机: {MACHINE}  (平台 {platform.system()})")
+    log(f"本机: {MACHINE}")
     log(f"大脑源: {[str(s) for _, s in brain_sources()]}")
     if not cfg.get("remote"):
         log("远端: 未配置 (运行 init 配置)"); return
-    rt, remote = cfg["remote_type"], cfg["remote"]
-    log(f"远端({rt}): {remote}")
-    if rt == "folder":
-        dst = Path(remote)
+    log(f"远端({cfg['remote_type']}): {cfg['remote']}")
+    if cfg["remote_type"] == "folder":
+        dst = Path(cfg["remote"])
         for name, _ in brain_sources():
             lc = count_files(APP / name)
             rc = count_files(dst / name)
             mark = "OK" if lc == rc else "差异"
             log(f"  {name}: 本机 {lc} 文件 / 远端 {rc} 文件  [{mark}]")
-    elif rt == "api":
-        token = get_github_token()
-        if not token:
-            log("  令牌: 未获取到(无法比对远端)"); return
-        owner, repo = parse_github_remote(remote)
-        if not owner:
-            log("  remote 解析失败"); return
-        branch = api_get_default_branch(token, owner, repo)
-        tree, _ = api_get_tree(token, owner, repo, branch)
-        if tree is None:
-            log("  无法获取远端树(检查网络/令牌)"); return
-        remote_paths = set(t["path"] for t in tree if t["type"] == "blob"
-                           and t["path"].startswith(SYNC_PREFIX))
-        local_paths = set()
-        for name, src in brain_sources():
-            if src.is_dir():
-                for f in src.rglob("*"):
-                    if f.is_file() and not _ignore_file(f):
-                        local_paths.add(str(f.relative_to(APP)))
-            elif src.exists():
-                local_paths.add(name)
-        only_local = local_paths - remote_paths
-        only_remote = remote_paths - local_paths
-        log(f"  远端可同步文件数: {len(remote_paths)}  本机可同步文件数: {len(local_paths)}")
-        if only_local:
-            log(f"  仅本机有(下次 push 会上传): {len(only_local)} 个")
-        if only_remote:
-            log(f"  仅远端有(下次 pull 会下载): {len(only_remote)} 个")
-        if not only_local and not only_remote:
-            log("  本机与远端一致 ✅")
     else:
         log("git 模式: 运行 push/pull 后与远端对齐; 可用 `push`/`pull` 实际同步")
 
 
 def cmd_doctor(args):
     cfg = load_cfg()
-    log(f"本机: {MACHINE}  (平台 {platform.system()})")
+    log(f"本机: {MACHINE}")
     log(f"APP 目录: {APP}")
     log(f"git: {'可用' if git_available() else '未安装'} ({GIT_BIN})")
     log(f"代理: HTTPS_PROXY={os.environ.get('HTTPS_PROXY','未设置')}  HTTP_PROXY={os.environ.get('HTTP_PROXY','未设置')}")
-    tk = get_github_token()
-    log(f"GitHub 令牌: {'已获取' if tk else '未获取'} ({'len='+str(len(tk)) if tk else 'None'})")
     log(f"远端配置: {cfg.get('remote_type', '无')}  {cfg.get('remote', '')}")
     log(f"大脑源: {[str(s) for _, s in brain_sources()]}")
 
@@ -751,8 +482,8 @@ def main():
     p = argparse.ArgumentParser(prog="wb-sync", description="WorkBuddy 跨设备同步")
     sub = p.add_subparsers(dest="cmd")
     pi = sub.add_parser("init", help="配置中转远端")
-    pi.add_argument("--type", required=True, choices=["folder", "git", "api"])
-    pi.add_argument("--remote", required=True, help="folder=共享目录; git/api=仓库 URL(支持 GitHub 自动创建)")
+    pi.add_argument("--type", required=True, choices=["folder", "git"])
+    pi.add_argument("--remote", required=True, help="folder=共享目录; git=仓库 URL(支持 GitHub 自动创建)")
     pi.set_defaults(func=cmd_init)
     sub.add_parser("push", help="把本机大脑推到远端").set_defaults(func=cmd_push)
     sub.add_parser("pull", help="从远端拉回本机").set_defaults(func=cmd_pull)

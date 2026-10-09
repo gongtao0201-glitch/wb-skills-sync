@@ -1,0 +1,14 @@
+{
+  "name": "腾讯新闻",
+  "installedAt": 1778144362115,
+  "source": "marketplace",
+  "iconSource": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/tencent-news.svg",
+  "version": "1.3.3",
+  "skillId": "skill_2053082907836022784",
+  "skillName": "tencent-news",
+  "description_zh": "7×24 新闻搜索工具，聚焦国内外热点，支持热榜、早晚报、实时资讯及领域新闻查询。",
+  "description_en": "7×24 news search tool focused on China and global hot topics, supporting rankings, briefings, real-time feeds, and domain news queries.",
+  "iconLocalPath": "C:\\Users\\Administrator\\.workbuddy\\skills\\tencent-news\\_icon.svg",
+  "iconDownloadedFrom": "https://openplatform-cdn.codebuddy.cn/public/skills/icons/tencent-news.svg",
+  "installedContentHash": "sha256:bea10b0c273c95e3243742928e5638afd3909a2c779e6a34f1c000c53baedfb6"
+}
