@@ -198,17 +198,16 @@ def ensure_github_repo(remote):
 
 
 def brain_sources():
-    """返回 [(相对名, 本地路径), ...] —— 要同步的本机大脑文件。"""
+    """返回 [(相对名, 本地路径), ...] —— 要同步的本机大脑文件。
+
+    注意: 远端仓库(gongtao0201-glitch/wb-skills-sync)已设为 PUBLIC 用于给云端
+    智能体(豆包等)实时同步技能。个人记忆(MEMORY.md / memory/)含路由器密码等
+    敏感明文, 一律不进入该公开仓库。如需跨设备同步记忆, 请改用独立私有仓库。
+    """
     out = []
     s = APP / "skills"
     if s.exists():
         out.append(("skills", s))
-    m = APP / "MEMORY.md"
-    if m.exists():
-        out.append(("MEMORY.md", m))
-    md = APP / "memory"
-    if md.exists():
-        out.append(("memory", md))
     return out
 
 
